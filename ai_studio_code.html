@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>美樂蒂大冒險</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #ffeef2; /* 淺粉色背景 */
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+        }
+        #game-container {
+            position: relative;
+        }
+        canvas {
+            background-color: #fff;
+            border-bottom: 3px solid #ffb6c1; /* 粉色地平線 */
+            border-radius: 10px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .info {
+            position: absolute;
+            top: 15px;
+            left: 20px;
+            color: #ff69b4;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        #game-over {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 20px;
+            border: 2px solid #ff69b4;
+        }
+        h1 { color: #ff69b4; }
+        button {
+            padding: 10px 25px;
+            font-size: 18px;
+            cursor: pointer;
+            background-color: #ff69b4;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            transition: 0.3s;
+        }
+        button:hover {
+            background-color: #ff1493;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div class="info">分數: <span id="score">0</span></div>
+    <canvas id="gameCanvas"></canvas>
+    <div id="game-over">
+        <h1>遊戲結束 🎀</h1>
+        <button onclick="resetGame()">重新開始</button>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreElement = document.getElementById('score');
+    const gameOverScreen = document.getElementById('game-over');
+
+    canvas.width = 800;
+    canvas.height = 250;
+
+    // 載入圖片
+    const melodyImg = new Image();
+    // 這裡使用一張網路上的美樂蒂透明背景圖
+    melodyImg.src = 'https://img.icons8.com/color/96/my-melody.png'; 
+
+    const obstacleImg = new Image();
+    // 障礙物改成小草莓
+    obstacleImg.src = 'https://img.icons8.com/emoji/48/strawberry-emoji.png';
+
+    let score = 0;
+    let gameSpeed = 5;
+    let isGameOver = false;
+    let animationId;
+
+    const melody = {
+        x: 50,
+        y: 180,
+        width: 60,  // 調整美樂蒂的大小
+        height: 60,
+        dy: 0,
+        jumpForce: 13,
+        gravity: 0.6,
+        grounded: false
+    };
+
+    let obstacles = [];
+
+    window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' || e.code === 'ArrowUp') jump();
+    });
+    canvas.addEventListener('touchstart', jump);
+    window.addEventListener('mousedown', jump);
+
+    function jump() {
+        if (melody.grounded && !isGameOver) {
+            melody.dy = -melody.jumpForce;
+            melody.grounded = false;
+        }
+    }
+
+    function createObstacle() {
+        let size = 40;
+        obstacles.push({
+            x: canvas.width,
+            y: canvas.height - size - 5,
+            width: size,
+            height: size
+        });
+    }
+
+    function update() {
+        if (isGameOver) return;
+
+        melody.dy += melody.gravity;
+        melody.y += melody.dy;
+
+        if (melody.y + melody.height > canvas.height - 5) {
+            melody.y = canvas.height - melody.height - 5;
+            melody.dy = 0;
+            melody.grounded = true;
+        }
+
+        if (Math.random() < 0.015) {
+            if (obstacles.length === 0 || obstacles[obstacles.length - 1].x < canvas.width - 300) {
+                createObstacle();
+            }
+        }
+
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+            obstacles[i].x -= gameSpeed;
+
+            // 碰撞偵測 (縮小一點判定範圍，讓遊戲更公平)
+            if (
+                melody.x + 10 < obstacles[i].x + obstacles[i].width &&
+                melody.x + melody.width - 10 > obstacles[i].x &&
+                melody.y + 10 < obstacles[i].y + obstacles[i].height &&
+                melody.y + melody.height > obstacles[i].y
+            ) {
+                endGame();
+            }
+
+            if (obstacles[i].x + obstacles[i].width < 0) {
+                obstacles.splice(i, 1);
+                score++;
+                scoreElement.innerText = score;
+                if (score % 5 === 0) gameSpeed += 0.2;
+            }
+        }
+
+        draw();
+        animationId = requestAnimationFrame(update);
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 畫美樂蒂
+        ctx.drawImage(melodyImg, melody.x, melody.y, melody.width, melody.height);
+
+        // 畫障礙物 (草莓)
+        for (let obs of obstacles) {
+            ctx.drawImage(obstacleImg, obs.x, obs.y, obs.width, obs.height);
+        }
+    }
+
+    function endGame() {
+        isGameOver = true;
+        cancelAnimationFrame(animationId);
+        gameOverScreen.style.display = 'block';
+    }
+
+    function resetGame() {
+        score = 0;
+        gameSpeed = 5;
+        isGameOver = false;
+        obstacles = [];
+        melody.y = 180;
+        melody.dy = 0;
+        scoreElement.innerText = score;
+        gameOverScreen.style.display = 'none';
+        update();
+    }
+
+    // 確保圖片載入後再開始遊戲
+    melodyImg.onload = () => {
+        update();
+    };
+</script>
+
+</body>
+</html>
